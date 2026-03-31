@@ -1,12 +1,21 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { getSupabaseServerClient } from "@/lib/supabaseServer";
 
-export default function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = cookies().get("admin_auth")?.value === "1";
+export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
+  const supabase = getSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!isAuthenticated) {
+  const email = user?.email?.trim();
+  if (!user || !email) {
     redirect("/admin/login");
+  }
+
+  const { data: isAdmin, error } = await supabase.rpc("is_admin", { p_email: email });
+  if (error || !isAdmin) {
+    redirect("/admin/login?denied=1");
   }
 
   return (

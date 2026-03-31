@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { Search, X } from "lucide-react";
 import { getSupabaseClient, saveRegistration } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
@@ -374,7 +375,7 @@ export function WorkshopGrid() {
                   className="rounded-xl border border-white/15 bg-white/10 px-3 py-1 text-sm text-white/85 hover:bg-white/15"
                   aria-label="Close"
                 >
-                  ✕
+                  <X size={16} aria-hidden="true" />
                 </button>
               </div>
 
@@ -582,14 +583,5 @@ function clampChili(n: number | null | undefined): 1 | 2 | 3 {
 }
 
 function SearchIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-current" aria-hidden>
-      <path
-        d="M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15zM16.5 16.5L21 21"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Search size={18} aria-hidden="true" />;
 }

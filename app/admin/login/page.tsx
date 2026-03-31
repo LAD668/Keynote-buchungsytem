@@ -1,9 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import Link from "next/link";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { HeroBackground } from "@/components/booking/HeroBackground";
+import { getSupabaseBrowserClient } from "@/lib/supabaseBrowser";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -14,26 +16,77 @@ export default function AdminLoginPage() {
 
   const canSubmit = useMemo(() => email.trim().length > 0 && password.length > 0, [email, password]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("denied")) setError("Access denied");
+  }, []);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setLoading(true);
 
-    const response = await fetch("/api/admin/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const pre = await fetch("/api/admin/precheck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const preJson = (await pre.json().catch(() => ({}))) as {
+        error?: string;
+        exists?: boolean;
+        confirmed?: boolean;
+        admin_verified?: boolean;
+        allowlisted?: boolean;
+      };
+      if (!pre.ok) {
+        setError(preJson.error ?? "Anmeldung fehlgeschlagen");
+        setLoading(false);
+        return;
+      }
+      if (!preJson.exists) {
+        setError("Kein Account gefunden.");
+        setLoading(false);
+        return;
+      }
+      if (!preJson.confirmed) {
+        setError("Bitte verifiziere zuerst deine Email.");
+        setLoading(false);
+        return;
+      }
+      if (!preJson.admin_verified) {
+        setError("Bitte verifiziere zuerst deinen Admin Account (Email Link).");
+        setLoading(false);
+        return;
+      }
 
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      setError(payload.error ?? "Anmeldung fehlgeschlagen");
+      const supabase = getSupabaseBrowserClient();
+      const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (signInError || !signIn.user?.email) {
+        setError("Anmeldung fehlgeschlagen");
+        setLoading(false);
+        return;
+      }
+
+      const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin", { p_email: signIn.user.email });
+      if (isAdminError || !isAdmin) {
+        await supabase.auth.signOut();
+        setError("Access denied");
+        setLoading(false);
+        return;
+      }
+
       setLoading(false);
-      return;
+      router.replace("/admin/dashboard");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Anmeldung fehlgeschlagen";
+      setError(msg);
+      setLoading(false);
     }
-
-    setLoading(false);
-    router.replace("/admin");
   }
 
   return (
@@ -110,12 +163,20 @@ export default function AdminLoginPage() {
           {loading ? "…" : "Login"}
         </button>
 
-        <a
-          href="/login"
-          className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/55 hover:text-white/85"
-        >
-          Besucher Login
-        </a>
+        <div className="flex flex-col items-center gap-3">
+          <Link
+            href="/admin/register"
+            className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/65 hover:text-white/90"
+          >
+            Don&apos;t have access? Register with admin code
+          </Link>
+          <Link
+            href="/login"
+            className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/55 hover:text-white/85"
+          >
+            Besucher Login
+          </Link>
+        </div>
       </form>
     </div>
   );

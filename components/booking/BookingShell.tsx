@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { Brain, CalendarFold, Cog } from "lucide-react";
 import { HeroBackground } from "@/components/booking/HeroBackground";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +49,7 @@ export function BookingShell({ children }: { children: ReactNode }) {
           </BottomNavLink>
           <BottomNavLink
             href="/profile"
-            label="Profil"
+            label="Einstellungen"
             active={pathname === "/profile" || pathname.startsWith("/profile/")}
           >
             <IconProfile active={pathname === "/profile" || pathname.startsWith("/profile/")} />
@@ -85,61 +86,13 @@ function BottomNavLink({
 }
 
 function IconWorkshops({ active }: { active: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={cn("h-7 w-7", active ? "text-sky-300" : "text-white/80")}
-      aria-hidden
-    >
-      <path
-        d="M4 5.5h6v6H4v-6zm10 0h6v6h-6v-6zM4 14.5h6v6H4v-6zm10 0h6v6h-6v-6z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Brain className={cn("h-6 w-6", active ? "text-sky-300" : "text-white/80")} aria-hidden="true" />;
 }
 
 function IconAgenda({ active }: { active: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={cn("h-7 w-7", active ? "text-sky-300" : "text-white/80")}
-      aria-hidden
-    >
-      <path
-        d="M7.5 4.5v2M16.5 4.5v2M4.5 9h15M6.5 6.5h11a2 2 0 012 2v11a2 2 0 01-2 2h-11a2 2 0 01-2-2v-11a2 2 0 012-2z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <CalendarFold className={cn("h-6 w-6", active ? "text-sky-300" : "text-white/80")} aria-hidden="true" />;
 }
 
 function IconProfile({ active }: { active: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={cn("h-7 w-7", active ? "text-sky-300" : "text-white/80")}
-      aria-hidden
-    >
-      <path
-        d="M12 12a4 4 0 100-8 4 4 0 000 8z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path
-        d="M4.5 20.2c1.8-4 5.1-6.2 7.5-6.2s5.7 2.2 7.5 6.2"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Cog className={cn("h-6 w-6", active ? "text-sky-300" : "text-white/80")} aria-hidden="true" />;
 }

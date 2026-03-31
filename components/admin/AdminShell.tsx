@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AlignEndHorizontal, Brain, CalendarFold, Cog } from "lucide-react";
 import { HeroBackground } from "@/components/booking/HeroBackground";
 import { cn } from "@/lib/utils";
 
@@ -36,10 +37,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       >
         <div className="mx-auto flex h-[72px] max-w-xl items-stretch justify-around gap-2 px-3 py-3">
           <NavItem
-            href="/admin"
+            href="/admin/dashboard"
             label="Dashboard"
-            active={isActive(pathname, "/admin")}
-            icon={<IconDashboard active={isActive(pathname, "/admin")} />}
+            active={isActive(pathname, "/admin/dashboard")}
+            icon={<IconDashboard active={isActive(pathname, "/admin/dashboard")} />}
           />
           <NavItem
             href="/admin/workshops"
@@ -54,14 +55,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             icon={<IconProgram active={isActive(pathname, "/admin/program")} />}
           />
           <NavItem
-            href="/admin/feedback"
-            label="Feedback"
-            active={isActive(pathname, "/admin/feedback")}
-            icon={<IconFeedback active={isActive(pathname, "/admin/feedback")} />}
-          />
-          <NavItem
             href="/admin/profile"
-            label="Profil"
+            label="Einstellungen"
             active={isActive(pathname, "/admin/profile")}
             icon={<IconProfile active={isActive(pathname, "/admin/profile")} />}
           />
@@ -72,9 +67,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 }
 
 function isActive(pathname: string, href: string) {
-  if (href === "/admin") {
-    return pathname === "/admin" || pathname === "/admin/";
-  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -106,70 +98,18 @@ function NavItem({
 }
 
 function IconDashboard({ active }: { active: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-7 w-7", active ? "text-sky-300" : "text-white/80")} aria-hidden>
-      <path
-        d="M4.5 12.5V6.8A2.3 2.3 0 016.8 4.5h3.7v8H4.5zM13.5 4.5h3.7a2.3 2.3 0 012.3 2.3v4.2h-6V4.5zM4.5 14h6v5.5H6.8A2.3 2.3 0 014.5 17.2V14zM13.5 12.5h6v4.7a2.3 2.3 0 01-2.3 2.3h-3.7v-7z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <AlignEndHorizontal className={cn("h-6 w-6", active ? "text-sky-300" : "text-white/80")} aria-hidden="true" />;
 }
 
 function IconWorkshops({ active }: { active: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-7 w-7", active ? "text-sky-300" : "text-white/80")} aria-hidden>
-      <path
-        d="M4 5.5h6v6H4v-6zm10 0h6v6h-6v-6zM4 14.5h6v6H4v-6zm10 0h6v6h-6v-6z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Brain className={cn("h-6 w-6", active ? "text-sky-300" : "text-white/80")} aria-hidden="true" />;
 }
 
 function IconProgram({ active }: { active: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-7 w-7", active ? "text-sky-300" : "text-white/80")} aria-hidden>
-      <path
-        d="M7.5 4.5v2M16.5 4.5v2M4.5 9h15M6.5 6.5h11a2 2 0 012 2v11a2 2 0 01-2 2h-11a2 2 0 01-2-2v-11a2 2 0 012-2z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function IconFeedback({ active }: { active: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-7 w-7", active ? "text-sky-300" : "text-white/80")} aria-hidden>
-      <path
-        d="M6.5 18.5h8.8l2.7 2V7.8A2.3 2.3 0 0015.7 5.5H6.5A2.3 2.3 0 004.2 7.8v8.4a2.3 2.3 0 002.3 2.3z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-      <path d="M7.5 9h7M7.5 12h6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    </svg>
-  );
+  return <CalendarFold className={cn("h-6 w-6", active ? "text-sky-300" : "text-white/80")} aria-hidden="true" />;
 }
 
 function IconProfile({ active }: { active: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-7 w-7", active ? "text-sky-300" : "text-white/80")} aria-hidden>
-      <path d="M12 12a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" strokeWidth="1.75" />
-      <path
-        d="M4.5 20.2c1.8-4 5.1-6.2 7.5-6.2s5.7 2.2 7.5 6.2"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Cog className={cn("h-6 w-6", active ? "text-sky-300" : "text-white/80")} aria-hidden="true" />;
 }
 

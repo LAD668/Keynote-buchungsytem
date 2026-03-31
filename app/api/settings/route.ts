@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 
 type SettingsResponse = {
   registration_enabled: boolean;
-  feedback_enabled: boolean;
 };
 
 export const dynamic = "force-dynamic";
@@ -15,7 +14,7 @@ export async function GET() {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.json(
-      { registration_enabled: true, feedback_enabled: true } satisfies SettingsResponse,
+      { registration_enabled: true } satisfies SettingsResponse,
       { status: 200, headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -28,7 +27,7 @@ export async function GET() {
 
   if (error) {
     return NextResponse.json(
-      { registration_enabled: true, feedback_enabled: true } satisfies SettingsResponse,
+      { registration_enabled: true } satisfies SettingsResponse,
       { status: 200, headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -41,7 +40,6 @@ export async function GET() {
   return NextResponse.json(
     {
       registration_enabled: map.get("registration_enabled") ?? true,
-      feedback_enabled: map.get("feedback_enabled") ?? true,
     } satisfies SettingsResponse,
     { status: 200, headers: { "Cache-Control": "no-store" } }
   );

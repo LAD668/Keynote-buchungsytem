@@ -48,8 +48,8 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-left text-3xl font-bold tracking-tight text-white sm:text-4xl">Profil</h1>
-        <p className="text-sm text-white/60">Ticket & persönliche Angaben</p>
+        <h1 className="text-left text-3xl font-bold tracking-tight text-white sm:text-4xl">Einstellungen</h1>
+        <p className="text-sm text-white/60">Profil</p>
       </header>
 
       {error ? (
@@ -63,6 +63,10 @@ export default function ProfilePage() {
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-white/45">Name</p>
             <p className="mt-1 text-lg font-semibold text-white">{guestName ?? "—"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/45">Email</p>
+            <p className="mt-1 text-sm text-white/55">—</p>
           </div>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-white/45">Ticket</p>

@@ -1,17 +1,24 @@
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getSupabaseServerClient } from "@/lib/supabaseServer";
 
 type SettingsResponse = {
   registration_enabled: boolean;
-  feedback_enabled: boolean;
 };
 
 export const dynamic = "force-dynamic";
 
-function requireAdmin() {
-  const ok = cookies().get("admin_auth")?.value === "1";
-  return ok;
+async function requireAdmin() {
+  const supabase = getSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const email = user?.email?.trim();
+  if (!email) return false;
+
+  const { data: isAdmin, error } = await supabase.rpc("is_admin", { p_email: email });
+  if (error) return false;
+  return Boolean(isAdmin);
 }
 
 function getServiceSupabase() {
@@ -43,11 +50,11 @@ function getAnonSupabase() {
 
 async function readSettings(): Promise<SettingsResponse> {
   const supabase = getAnonSupabase() ?? getServiceSupabase();
-  if (!supabase) return { registration_enabled: true, feedback_enabled: true };
+  if (!supabase) return { registration_enabled: true };
 
   const { data, error } = await supabase.from("app_settings").select("key,boolean_value");
   if (error) {
-    return { registration_enabled: true, feedback_enabled: true };
+    return { registration_enabled: true };
   }
   const map = new Map<string, boolean>();
   for (const row of (data ?? []) as Array<{ key: string; boolean_value: boolean }>) {
@@ -55,12 +62,11 @@ async function readSettings(): Promise<SettingsResponse> {
   }
   return {
     registration_enabled: map.get("registration_enabled") ?? true,
-    feedback_enabled: map.get("feedback_enabled") ?? true,
   };
 }
 
 export async function GET() {
-  if (!requireAdmin()) {
+  if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -69,15 +75,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!requireAdmin()) {
+  if (!(await requireAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = (await request.json().catch(() => ({}))) as Partial<SettingsResponse>;
   const nextRegistration = typeof body.registration_enabled === "boolean" ? body.registration_enabled : null;
-  const nextFeedback = typeof body.feedback_enabled === "boolean" ? body.feedback_enabled : null;
 
-  if (nextRegistration == null && nextFeedback == null) {
+  if (nextRegistration == null) {
     return NextResponse.json({ error: "No settings provided." }, { status: 400 });
   }
 
@@ -94,7 +99,6 @@ export async function POST(request: Request) {
 
   const rows: Array<{ key: string; boolean_value: boolean }> = [];
   if (nextRegistration != null) rows.push({ key: "registration_enabled", boolean_value: nextRegistration });
-  if (nextFeedback != null) rows.push({ key: "feedback_enabled", boolean_value: nextFeedback });
 
   const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "key" });
   if (error) {

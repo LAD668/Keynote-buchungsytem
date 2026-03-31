@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Pencil, Plus, RefreshCw, Settings, Trash2, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { getSupabaseClient } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,22 @@ export default function AdminWorkshopsPage() {
   const [workshops, setWorkshops] = useState<WorkshopRow[]>([]);
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
 
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailWorkshop, setDetailWorkshop] = useState<WorkshopRow | null>(null);
+  const [participantLoading, setParticipantLoading] = useState(false);
+  const [participantError, setParticipantError] = useState("");
+  const [participants, setParticipants] = useState<Array<{ ticket_id: string | null; created_at: string | null; tickets?: { guest_name?: string | null } | null }>>(
+    []
+  );
+  const [participantActionLoading, setParticipantActionLoading] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addTicketId, setAddTicketId] = useState("");
+  const [addSearch, setAddSearch] = useState("");
+  const [addSearchLoading, setAddSearchLoading] = useState(false);
+  const [addSearchError, setAddSearchError] = useState("");
+  const [addSearchResults, setAddSearchResults] = useState<Array<{ ticket_id: string; guest_name: string | null }>>([]);
+
   const [createOpen, setCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -77,7 +94,6 @@ export default function AdminWorkshopsPage() {
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState("");
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
-  const [feedbackEnabled, setFeedbackEnabled] = useState(true);
 
   const [formSlot, setFormSlot] = useState<Slot>(1);
   const [formTimeLabel, setFormTimeLabel] = useState<string>(slotLabel[1]);
@@ -107,6 +123,130 @@ export default function AdminWorkshopsPage() {
   useEffect(() => {
     setFormTimeLabel(slotLabel[formSlot]);
   }, [formSlot]);
+
+  async function openWorkshopDetail(workshop: WorkshopRow) {
+    setDetailWorkshop(workshop);
+    setDetailOpen(true);
+    setParticipantError("");
+    setParticipants([]);
+    setParticipantLoading(true);
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setParticipantError("Supabase ist nicht konfiguriert.");
+      setParticipantLoading(false);
+      return;
+    }
+
+    const { data, error: pError } = await supabase
+      .from("registrations")
+      .select("ticket_id,created_at,tickets(guest_name)")
+      .eq("workshop_id", workshop.id)
+      .order("created_at", { ascending: true });
+
+    if (pError) {
+      setParticipantError(pError.message);
+      setParticipantLoading(false);
+      return;
+    }
+
+    setParticipants(
+      (data ?? []) as Array<{ ticket_id: string | null; created_at: string | null; tickets?: { guest_name?: string | null } | null }>
+    );
+    setParticipantLoading(false);
+  }
+
+  async function removeParticipant(ticketId: string, workshopId: string) {
+    setParticipantError("");
+    setParticipantActionLoading(`remove:${ticketId}`);
+    try {
+      const res = await fetch("/api/admin/registrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remove", ticket_id: ticketId, workshop_id: workshopId }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setParticipantError(json.error ?? "Teilnehmer konnte nicht entfernt werden.");
+        setParticipantActionLoading(null);
+        return;
+      }
+      if (detailWorkshop) await openWorkshopDetail(detailWorkshop);
+      await loadData();
+    } finally {
+      setParticipantActionLoading(null);
+    }
+  }
+
+  async function setParticipantWorkshop(ticketId: string, workshopId: string, guestName?: string) {
+    setParticipantError("");
+    setParticipantActionLoading(`set:${ticketId}`);
+    try {
+      const res = await fetch("/api/admin/registrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set", ticket_id: ticketId, workshop_id: workshopId, guest_name: guestName?.trim() ?? "" }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setParticipantError(json.error ?? "Teilnehmer konnte nicht verschoben werden.");
+        setParticipantActionLoading(null);
+        return;
+      }
+      if (detailWorkshop) await openWorkshopDetail(detailWorkshop);
+      await loadData();
+    } finally {
+      setParticipantActionLoading(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!addOpen) return;
+
+    const q = addSearch.trim();
+    if (q.length < 2) {
+      setAddSearchResults([]);
+      setAddSearchError("");
+      setAddSearchLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const handle = window.setTimeout(async () => {
+      setAddSearchLoading(true);
+      setAddSearchError("");
+      try {
+        const res = await fetch("/api/admin/tickets/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: q, limit: 8 }),
+          signal: controller.signal,
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          tickets?: Array<{ ticket_id: string; guest_name: string | null }>;
+        };
+        if (!res.ok) {
+          setAddSearchError(json.error ?? "Suche fehlgeschlagen.");
+          setAddSearchResults([]);
+          setAddSearchLoading(false);
+          return;
+        }
+        setAddSearchResults(json.tickets ?? []);
+        setAddSearchLoading(false);
+      } catch (e) {
+        if ((e as { name?: string }).name === "AbortError") return;
+        setAddSearchError("Suche fehlgeschlagen.");
+        setAddSearchResults([]);
+        setAddSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(handle);
+    };
+  }, [addOpen, addSearch]);
 
   function resetCreateForm() {
     setFormSlot(1);
@@ -396,19 +536,15 @@ export default function AdminWorkshopsPage() {
         return;
       }
 
-      const json = (await res.json().catch(() => ({}))) as {
-        registration_enabled?: boolean;
-        feedback_enabled?: boolean;
-      };
+      const json = (await res.json().catch(() => ({}))) as { registration_enabled?: boolean };
       setRegistrationEnabled(json.registration_enabled ?? true);
-      setFeedbackEnabled(json.feedback_enabled ?? true);
       setSettingsLoading(false);
     }
 
     loadSettings();
   }, [settingsOpen]);
 
-  async function saveSettings(next: { registration_enabled?: boolean; feedback_enabled?: boolean }) {
+  async function saveSettings(next: { registration_enabled?: boolean }) {
     setSettingsSaving(true);
     setSettingsError("");
     try {
@@ -423,15 +559,10 @@ export default function AdminWorkshopsPage() {
         return null;
       }
 
-      const json = (await res.json().catch(() => ({}))) as {
-        registration_enabled?: boolean;
-        feedback_enabled?: boolean;
-      };
+      const json = (await res.json().catch(() => ({}))) as { registration_enabled?: boolean };
       setRegistrationEnabled(json.registration_enabled ?? true);
-      setFeedbackEnabled(json.feedback_enabled ?? true);
       return {
         registration_enabled: json.registration_enabled ?? true,
-        feedback_enabled: json.feedback_enabled ?? true,
       };
     } finally {
       setSettingsSaving(false);
@@ -456,7 +587,7 @@ export default function AdminWorkshopsPage() {
             aria-label="Einstellungen"
             title="Einstellungen"
           >
-            <SettingsIcon />
+            <Settings size={16} aria-hidden="true" />
           </button>
 
           <button
@@ -468,11 +599,11 @@ export default function AdminWorkshopsPage() {
               resetCreateForm();
               setCreateOpen(true);
             }}
-            className="rounded-full bg-brand p-0 shadow-[0_12px_40px_rgba(0,0,0,0.35)] hover:brightness-110 active:scale-[0.99] w-11 h-11 text-white font-semibold text-xl flex items-center justify-center"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-brand p-0 text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:brightness-110 active:scale-[0.99]"
             aria-label="Neuen Workshop hinzufügen"
             title="Neuen Workshop hinzufügen"
           >
-            +
+              <Plus size={18} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -499,11 +630,11 @@ export default function AdminWorkshopsPage() {
               <button
                 type="button"
                 onClick={() => setSettingsOpen(false)}
-                className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/80 transition hover:border-white/25 hover:bg-white/10"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/85 transition hover:border-white/25 hover:bg-white/10"
                 aria-label="Schließen"
                 title="Schließen"
               >
-                ✕
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
@@ -531,23 +662,285 @@ export default function AdminWorkshopsPage() {
                   }
                 }}
               />
-              <SettingRow
-                label="Feedback aktiv"
-                description="Wenn aus: Besucher sehen keinen Feedback-Button."
-                value={feedbackEnabled}
-                disabled={settingsLoading || settingsSaving}
-                onChange={async (v) => {
-                  const prev = feedbackEnabled;
-                  setFeedbackEnabled(v);
-                  const saved = await saveSettings({ feedback_enabled: v });
-                  if (!saved) {
-                    setFeedbackEnabled(prev);
-                  }
-                }}
-              />
             </div>
 
             {settingsLoading ? <p className="mt-4 text-sm text-white/55">Lade …</p> : null}
+          </div>
+        </div>
+      ) : null}
+
+      {detailOpen && detailWorkshop ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1224]/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Workshop Details"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setDetailOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md max-h-[calc(100dvh-2rem)] overflow-y-auto [-webkit-overflow-scrolling:touch] overscroll-contain"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">
+                  Slot {detailWorkshop.time_slot} · {detailWorkshop.time_label ?? slotLabel[detailWorkshop.time_slot]}
+                </p>
+                <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">{detailWorkshop.title}</h2>
+                <p className="mt-1 text-sm text-white/70">{detailWorkshop.speaker}</p>
+                <p className="mt-1 text-sm text-white/55">{detailWorkshop.room}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/85 transition hover:border-white/25 hover:bg-white/10"
+                aria-label="Schließen"
+                title="Schließen"
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>
+
+            {detailWorkshop.description ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/75">
+                {detailWorkshop.description}
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Ort</p>
+                <p className="mt-2 text-sm text-white/80">
+                  {detailWorkshop.building ? `${detailWorkshop.building} · ` : ""}
+                  {detailWorkshop.floor == null
+                    ? ""
+                    : detailWorkshop.floor === -1
+                      ? "Untergeschoss · "
+                      : detailWorkshop.floor === 0
+                        ? "Erdgeschoss · "
+                        : `${detailWorkshop.floor}. Obergeschoss · `}
+                  {detailWorkshop.room}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Teilnehmer</p>
+                <p className="mt-2 text-3xl font-semibold text-white/80">
+                  {counts.get(detailWorkshop.id) ?? participants.length}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-white/85">Teilnehmerliste</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !addOpen;
+                        setAddOpen(next);
+                        if (next) {
+                          setAddSearch("");
+                          setAddSearchResults([]);
+                          setAddSearchError("");
+                          setAddSearchLoading(false);
+                          setAddName("");
+                          setAddTicketId("");
+                        }
+                      }}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/85 transition hover:border-white/25 hover:bg-white/10"
+                      aria-label="Teilnehmer hinzufügen"
+                      title="Teilnehmer hinzufügen"
+                    >
+                      <Plus size={16} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openWorkshopDetail(detailWorkshop)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/85 transition hover:border-white/25 hover:bg-white/10"
+                      aria-label="Refresh"
+                      title="Refresh"
+                    >
+                      <RefreshCw size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+              </div>
+
+              {addOpen ? (
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-semibold text-white/85">Teilnehmer hinzufügen</h4>
+                      <p className="mt-1 text-xs text-white/45">Suche nach Name oder Ticket ID.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAddOpen(false)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white/85 transition hover:border-white/25 hover:bg-white/10"
+                      aria-label="Schließen"
+                      title="Schließen"
+                    >
+                      <X size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45" htmlFor="add-search">
+                      Suchen
+                    </label>
+                    <input
+                      id="add-search"
+                      value={addSearch}
+                      onChange={(e) => setAddSearch(e.target.value)}
+                      placeholder="z.B. TESTUSER23 oder TICKET-123"
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-white/30 focus:bg-white/10"
+                    />
+                    {addSearchLoading ? <p className="mt-2 text-xs text-white/45">Suche …</p> : null}
+                    {addSearchError ? (
+                      <p className="mt-2 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100" role="alert">
+                        {addSearchError}
+                      </p>
+                    ) : null}
+                    {!addSearchLoading && addSearchResults.length > 0 ? (
+                      <ul className="mt-2 space-y-2">
+                        {addSearchResults.map((t) => {
+                          const label = (t.guest_name ?? "").trim() || t.ticket_id;
+                          return (
+                            <li key={t.ticket_id}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAddTicketId(t.ticket_id);
+                                  setAddName((t.guest_name ?? "").trim());
+                                }}
+                                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left transition hover:border-white/20 hover:bg-white/10"
+                              >
+                                <span className="block text-sm font-medium text-white/80">{label}</span>
+                                <span className="mt-0.5 block text-xs text-white/45">{t.ticket_id}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-5">
+                    <button
+                      type="button"
+                      disabled={!addTicketId.trim() || participantActionLoading != null}
+                      onClick={async () => {
+                        const t = addTicketId.trim();
+                        const w = detailWorkshop.id;
+                        if (!t || !w) return;
+                        await setParticipantWorkshop(t, w, addName.trim());
+                        setAddName("");
+                        setAddTicketId("");
+                        setAddOpen(false);
+                      }}
+                      className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+                    >
+                      Hinzufügen zu {detailWorkshop.title}
+                    </button>
+                    {addTicketId ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddName("");
+                          setAddTicketId("");
+                        }}
+                        className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/70 transition hover:border-white/25 hover:bg-white/10"
+                      >
+                        Auswahl entfernen
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {participantError ? (
+                <p className="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-100" role="alert">
+                  {participantError}
+                </p>
+              ) : null}
+
+              {participantLoading ? <p className="mt-3 text-sm text-white/55">Lade Teilnehmer …</p> : null}
+
+              {!participantLoading ? (
+                participants.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {participants.map((p) => {
+                      const name = p.tickets?.guest_name?.trim();
+                      const ticketId = p.ticket_id ?? "";
+                      const label = name && name.length > 0 ? name : ticketId || "—";
+                      const moveOptions = workshops.filter(
+                        (w) => w.time_slot === detailWorkshop.time_slot && w.id !== detailWorkshop.id
+                      );
+                      return (
+                        <li
+                          key={`${p.ticket_id ?? "x"}-${p.created_at ?? ""}`}
+                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <span className="block text-sm font-medium text-white/80">{label}</span>
+                              <span className="mt-1 block text-xs text-white/45">
+                                {p.created_at ? new Date(p.created_at).toLocaleString("de-CH") : "—"}
+                              </span>
+                            </div>
+
+                            <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+                              <button
+                                type="button"
+                                disabled={!ticketId || participantActionLoading != null}
+                                onClick={() => removeParticipant(ticketId, detailWorkshop.id)}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-300/25 bg-rose-500/10 text-rose-100 transition hover:border-rose-300/40 hover:bg-rose-500/15 disabled:opacity-60"
+                                aria-label="Teilnehmer entfernen"
+                                title="Entfernen"
+                              >
+                                {participantActionLoading === `remove:${ticketId}` ? (
+                                  <span className="text-sm">…</span>
+                                ) : (
+                                  <Trash2 size={16} aria-hidden="true" />
+                                )}
+                              </button>
+
+                              {moveOptions.length > 0 ? (
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    defaultValue=""
+                                    className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-white outline-none transition focus:border-white/30 focus:bg-white/10"
+                                    onChange={async (e) => {
+                                      const nextId = e.target.value;
+                                      if (!nextId || !ticketId) return;
+                                      e.currentTarget.value = "";
+                                      await setParticipantWorkshop(ticketId, nextId);
+                                    }}
+                                    disabled={participantActionLoading != null || !ticketId}
+                                    aria-label="Teilnehmer verschieben"
+                                  >
+                                    <option value="">Verschieben…</option>
+                                    {moveOptions.map((w) => (
+                                      <option key={w.id} value={w.id}>
+                                        {w.title}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-white/55">Noch keine Teilnehmer.</p>
+                )
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}
@@ -841,7 +1234,8 @@ export default function AdminWorkshopsPage() {
             return (
               <Card
                 key={workshop.id}
-                className="rounded-2xl border-white/15 bg-white/10 p-5 backdrop-blur-md hover:shadow-[0_18px_60px_rgba(0,0,0,0.35)] transition-shadow"
+                className="rounded-2xl border-white/15 bg-white/10 p-5 backdrop-blur-md hover:shadow-[0_18px_60px_rgba(0,0,0,0.35)] transition-shadow cursor-pointer"
+                onClick={() => openWorkshopDetail(workshop)}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -867,7 +1261,7 @@ export default function AdminWorkshopsPage() {
                         aria-label="Workshop bearbeiten"
                         title="Bearbeiten"
                       >
-                        <PencilIcon />
+                        <Pencil size={16} aria-hidden="true" />
                       </button>
                       <button
                         type="button"
@@ -881,7 +1275,7 @@ export default function AdminWorkshopsPage() {
                         aria-label="Workshop entfernen"
                         title="Entfernen"
                       >
-                        {deletingId === workshop.id ? <span className="text-sm">…</span> : <TrashIcon />}
+                        {deletingId === workshop.id ? <span className="text-sm">…</span> : <Trash2 size={16} aria-hidden="true" />}
                       </button>
                     </div>
                     <div className="text-right">
@@ -946,54 +1340,7 @@ function getInitials(name: string) {
   return initials.toUpperCase();
 }
 
-function PencilIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
-      <path
-        d="M12.5 6.5l5 5M4.5 19.5l4.7-1 9.8-9.8a1.8 1.8 0 000-2.6l-1.6-1.6a1.8 1.8 0 00-2.6 0L5.9 12.3 4.5 19.5z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
-      <path
-        d="M9 4.5h6M4.5 6.5h15M9.5 6.5l.6 14h2.8l.6-14"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10.3 10v7M13.7 10v7"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
-      <path d="M12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" stroke="currentColor" strokeWidth="1.75" />
-      <path
-        d="M19.4 12a7.7 7.7 0 00-.1-1l2-1.5-2-3.4-2.4.8a7.7 7.7 0 00-1.7-1L14.8 3h-4L10.4 5.9a7.7 7.7 0 00-1.7 1L6.3 6.1l-2 3.4 2 1.5a7.7 7.7 0 000 2l-2 1.5 2 3.4 2.4-.8a7.7 7.7 0 001.7 1l.4 2.9h4l.4-2.9a7.7 7.7 0 001.7-1l2.4.8 2-3.4-2-1.5c.1-.3.1-.7.1-1z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
+ 
 function SettingRow({
   label,
   description,

@@ -2,6 +2,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { getSupabaseClient } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -599,30 +600,10 @@ function getLocalDateString() {
 }
 
 function IconTrash() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4.5 7h15M9 7V5.5A2 2 0 0 1 11 3.5h2A2 2 0 0 1 15 5.5V7M7.5 7l1 14h7l1-14"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Trash2 size={18} aria-hidden="true" />;
 }
 
 function IconPencil() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12.7 6.3l5 5M4.5 19.5l4.2-1 10.3-10.3a2.1 2.1 0 0 0 0-3l-.2-.2a2.1 2.1 0 0 0-3 0L5.5 15.3l-1 4.2z"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Pencil size={18} aria-hidden="true" />;
 }
 
