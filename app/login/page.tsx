@@ -58,7 +58,9 @@ export default function LoginPage() {
 
     if (!result.ok) {
       if (result.reason === "not_configured") {
-        setError("Supabase ist nicht konfiguriert. Prüfe .env.local (URL + Anon Key).");
+        setError(
+          "Supabase ist nicht konfiguriert. Prüfe die Environment Variables (NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY)."
+        );
       } else if (result.reason === "not_found") {
         setError("Ticket nicht gefunden. ID exakt wie in Supabase (Groß/Klein, Bindestriche)?");
       } else {
