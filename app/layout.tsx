@@ -11,6 +11,13 @@ export const metadata: Metadata = {
   title: "Dänk Symposium",
   description: "Workshop booking system",
   applicationName: "Dänk Symposium",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-512.svg", sizes: "512x512", type: "image/svg+xml" },
+    ],
+    apple: "/icons/icon-192.svg",
+  },
 };
 
 export const viewport: Viewport = {
