@@ -1,7 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import crypto from "crypto";
-import { sendVerificationEmail } from "@/lib/email";
 
 type RegisterBody = {
   name?: string;
@@ -12,10 +10,6 @@ type RegisterBody = {
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
-}
-
-function sha256Hex(value: string) {
-  return crypto.createHash("sha256").update(value).digest("hex");
 }
 
 function jsonError(message: string, status = 400) {
@@ -68,7 +62,7 @@ export async function POST(request: Request) {
     return jsonError(createError?.message ?? "Could not create user", 400);
   }
 
-  console.log("[REGISTER] User created, generating token...");
+  console.log("[REGISTER] User created");
   const userId = created.user.id;
 
   const { error: consumeError } = await supabase
@@ -81,32 +75,10 @@ export async function POST(request: Request) {
 
   await supabase.from("admin_allowlist").upsert({ email }, { onConflict: "email" });
 
-  const token = crypto.randomUUID();
-  console.log("[REGISTER] Token generated (prefix):", token.slice(0, 8));
-  const tokenHash = sha256Hex(token);
-
-  console.log("[REGISTER] Storing token in database...");
-  const { error: tokenError } = await supabase.from("email_verification_tokens").insert({
-    token_hash: tokenHash,
-    user_id: userId,
-    email,
-    used: false,
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  });
-  if (tokenError) return jsonError("Could not create verification token", 500);
-
-  console.log("[REGISTER] About to send email");
-  try {
-    const emailResult = await sendVerificationEmail(email, token);
-    console.log("[REGISTER] Email sent:", emailResult);
-  } catch (error) {
-    console.error("[REGISTER] Email failed:", error);
-  }
-
   console.log("[REGISTER] Registration complete");
 
   return NextResponse.json(
-    { success: true, message: "Check your email to verify your account" },
+    { success: true, message: "Registration complete" },
     { status: 200 },
   );
 }

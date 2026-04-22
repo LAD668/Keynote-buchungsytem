@@ -35,16 +35,13 @@ export async function POST(request: Request) {
 
   const confirmed = Boolean(user.email_confirmed_at);
 
-  const [{ data: verifiedRow }, { data: allowRow }] = await Promise.all([
-    supabase.from("admin_email_verifications").select("email").eq("email", email).maybeSingle(),
-    supabase.from("admin_allowlist").select("email").eq("email", email).maybeSingle(),
-  ]);
+  const { data: allowRow } = await supabase.from("admin_allowlist").select("email").eq("email", email).maybeSingle();
 
   return NextResponse.json(
     {
       exists: true,
       confirmed,
-      admin_verified: Boolean(verifiedRow),
+      admin_verified: true,
       allowlisted: Boolean(allowRow),
     },
     { status: 200 }
