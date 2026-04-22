@@ -178,7 +178,7 @@ export default function AdminRegisterPage() {
 
           {success ? (
             <div className="rounded-2xl border border-emerald-300/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-              Check your email to verify your account.
+              Registrierung erfolgreich. Du kannst dich jetzt einloggen.
             </div>
           ) : null}
 
