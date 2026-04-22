@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   if (!adminCode) return jsonError("Admin code is required");
 
   const email = normalizeEmail(emailRaw);
-  console.log("Starting registration for:", email);
+  console.log("[REGISTER] Starting registration for:", email);
 
   const supabase = getServiceSupabase();
   if (!supabase) return jsonError("Server auth is not configured", 500);
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     return jsonError(createError?.message ?? "Could not create user", 400);
   }
 
-  console.log("User created, generating token...");
+  console.log("[REGISTER] User created, generating token...");
   const userId = created.user.id;
 
   const { error: consumeError } = await supabase
@@ -82,10 +82,10 @@ export async function POST(request: Request) {
   await supabase.from("admin_allowlist").upsert({ email }, { onConflict: "email" });
 
   const token = crypto.randomUUID();
-  console.log("Token generated:", token);
+  console.log("[REGISTER] Token generated (prefix):", token.slice(0, 8));
   const tokenHash = sha256Hex(token);
 
-  console.log("Storing token in database...");
+  console.log("[REGISTER] Storing token in database...");
   const { error: tokenError } = await supabase.from("email_verification_tokens").insert({
     token_hash: tokenHash,
     user_id: userId,
@@ -95,16 +95,19 @@ export async function POST(request: Request) {
   });
   if (tokenError) return jsonError("Could not create verification token", 500);
 
-  console.log("Sending verification email to:", email);
+  console.log("[REGISTER] About to send email");
   try {
     const emailResult = await sendVerificationEmail(email, token);
-    console.log("Email sent successfully:", emailResult);
+    console.log("[REGISTER] Email sent:", emailResult);
   } catch (error) {
-    console.error("Email sending failed:", error);
+    console.error("[REGISTER] Email failed:", error);
   }
 
-  console.log("Registration complete");
+  console.log("[REGISTER] Registration complete");
 
-  return NextResponse.json({ success: true }, { status: 200 });
+  return NextResponse.json(
+    { success: true, message: "Check your email to verify your account" },
+    { status: 200 },
+  );
 }
 
