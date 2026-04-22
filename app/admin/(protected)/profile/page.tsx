@@ -1,53 +1,20 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/Card";
-import { getSupabaseBrowserClient } from "@/lib/supabaseBrowser";
+import { getSupabaseServerClient } from "@/lib/supabaseServer";
+import { AdminProfileClient } from "@/components/admin/AdminProfileClient";
 
-export default function AdminProfilePage() {
-  const router = useRouter();
-  const [name, setName] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
-  const [error, setError] = useState("");
+export default async function AdminProfilePage() {
+  const supabase = getSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  async function logout() {
-    setError("");
-    try {
-      const supabase = getSupabaseBrowserClient();
-      await supabase.auth.signOut();
-    } catch {
-      // ignore
-    }
-    router.replace("/admin/login");
+  const email = user?.email?.trim() ?? "";
+  if (!email) {
+    redirect("/admin/login");
   }
 
-  useEffect(() => {
-    let alive = true;
-    async function load() {
-      setError("");
-      try {
-        const supabase = getSupabaseBrowserClient();
-        const { data, error: uError } = await supabase.auth.getUser();
-        if (!alive) return;
-        if (uError) {
-          setError("Profil konnte nicht geladen werden.");
-          return;
-        }
-        const u = data.user;
-        setEmail(u?.email?.trim() ?? "");
-        const n = (u?.user_metadata as { name?: string | null } | null)?.name?.toString().trim() ?? "";
-        setName(n);
-      } catch {
-        if (!alive) return;
-        setError("Profil konnte nicht geladen werden.");
-      }
-    }
-    load();
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const name = (user?.user_metadata as { name?: string | null } | null)?.name?.toString().trim() ?? "";
 
   return (
     <div className="space-y-6">
@@ -55,12 +22,6 @@ export default function AdminProfilePage() {
         <h1 className="text-left text-3xl font-bold tracking-tight text-white sm:text-4xl">Einstellungen</h1>
         <p className="text-sm text-white/60">Besucher-Verwaltung & Profil</p>
       </header>
-
-      {error ? (
-        <p className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-100" role="alert">
-          {error}
-        </p>
-      ) : null}
 
       <Card className="border-white/15 bg-white/10 text-white backdrop-blur-md">
         <div className="space-y-2">
@@ -84,13 +45,7 @@ export default function AdminProfilePage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={logout}
-            className="glass-button w-full rounded-2xl px-5 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white"
-          >
-            Logout
-          </button>
+          <AdminProfileClient />
         </div>
       </Card>
     </div>
